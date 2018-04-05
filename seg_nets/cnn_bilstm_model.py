@@ -1,3 +1,9 @@
+# class encapsulation of model adapted from
+# https://danijar.com/structuring-your-tensorflow-models/
+# and
+# https://blog.metaflow.fr/
+# tensorflow-a-proposal-of-good-practices-for-files-folders-and-models-architecture-f23171501ae3
+
 from math import ceil
 
 import tensorflow as tf
@@ -19,7 +25,8 @@ class CNNBiLSTM:
                  pool1_strides=(1, 8),
                  pool2_size=(1, 8),
                  pool2_strides=(1, 8),
-                 learning_rate=0.001
+                 learning_rate=0.001,
+                 max_to_keep=5
                  ):
         """hybrid convolutional neural net with bidirectional LSTM layer
 
@@ -58,19 +65,11 @@ class CNNBiLSTM:
         self.learning_rate = learning_rate
 
         self.graph = tf.Graph()
-        with self.graph.as_default:
+        with self.graph.as_default():
             self.build_graph()
-
-            self.saver = tf.train.Saver()
-
-        # Create a summary to monitor cost tensor
-        tf.summary.scalar("loss", cost)
-        # Merge all summaries into a single op
-        merged_summary_op = tf.summary.merge_all()
+            self.saver = tf.train.Saver(max_to_keep=max_to_keep)
 
         init = tf.global_variables_initializer()
-
-
 
     def build_graph(self):
         """build graph for 'inferring' labels of
@@ -86,7 +85,6 @@ class CNNBiLSTM:
                            name="Ylabels")
         self.seq_length = tf.placeholder("int32",
                                          name="nSteps")
-
 
         conv1 = tf.layers.conv2d(inputs=tf.reshape(self.X,
                                                    [self.batch_size,
@@ -171,7 +169,25 @@ class CNNBiLSTM:
                                                    0),
                                   name='xentropy')
         self.cost = tf.reduce_mean(xentropy_layer, name='cost')
+        tf.summary.scalar("loss", self.cost)
+        merged_summary_op = tf.summary.merge_all()
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
         self.global_step = tf.Variable(0, name='global_step', trainable=False)
-        return optimizer.minimize(cost, global_step=self.global_step)
+        return optimizer.minimize(self.cost, global_step=self.global_step)
 
+    def save(self):
+        # This function is usually common to all your models, Here is an example:
+        global_step_t = tf.train.get_global_step(self.graph)
+        global_step, episode_id = self.sess.run([global_step_t, self.episode_id])
+        if self.config['debug']:
+            print('Saving to %s with global_step %d' % (self.result_dir, global_step))
+        self.saver.save(self.sess, self.result_dir + '/agent-ep_' + str(episode_id), global_step)
+
+        # I always keep the configuration that
+        if not os.path.isfile(self.result_dir + '/config.json'):
+            config = self.config
+            if 'phi' in config:
+                del config['phi']
+            with open(self.result_dir + '/config.json', 'w') as f:
+
+        json.dump(self.config, f)
