@@ -6,22 +6,16 @@ For a template config file that you can modify, see
 [./template_config.ini](./template_cnfig.ini)
 
 ## NETWORK section
-Hyperparameters for network and related options such as batch size
+Network type, hyperparameters, and related options such as batch size
 
 ```
 [NETWORK]
-batch_size = 11
-time_steps = 88
-learning_rate = 0.001
+config_file = config_040618.py
 ```
 
-`batch_size` : int  
-    Number of spectrogram 'chunks' in a batch, where a 'chunk' will be of
-    size (number of frequency bins in spectrogram * `time_steps`)  
-`time_steps` : int  
-    Number of time bins that networks gets to see.  
-`learning_rate` : float  
-    For optimizer
+`config_file` : str
+    filename of python file with configuration parameters for network(s).
+    To avoid writing a parser, for now.
 
 ## SPECTROGRAM section
 Parameters used when making spectrograms from audio files

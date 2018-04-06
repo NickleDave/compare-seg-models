@@ -1,0 +1,9 @@
+models:
+  ED_TCN:
+    n_nodes: 64, 96
+    conv_len: 25
+    loss: categorical_crossentropy
+    causal: False
+    optimizer: rmsprop
+    activation: norm_relu
+    return_param_str: False

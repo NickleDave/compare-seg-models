@@ -3,13 +3,12 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='cnn-bilstm',
+    name='seg_nets',
     version='0.1a',
-    description=('hybrid convolutional-recurrent neural networks for '
-                'segmentation of birdsong and classification of elements'),
-    author='Yarden Cohen, David Nicholson',
-    author_email='https://github.com/yardencsGitHub/tf_syllable_segmentation_annotation/issues',
-    url='https://github.com/yardencsGitHub/tf_syllable_segmentation_annotation/',
+    description=('comparison of network architectures for segmentation'),
+    author='David Nicholson',
+    author_email='',
+    url='',
     packages=find_packages(),
     license='BSD',
     classifiers=[

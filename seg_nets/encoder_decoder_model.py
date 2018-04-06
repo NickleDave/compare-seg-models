@@ -103,7 +103,7 @@ def decoder_layer(input,
 
 def time_distributed(input, layer):
     """
-    
+
     :param input:
     :param layer:
     :return:
