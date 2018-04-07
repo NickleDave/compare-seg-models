@@ -127,8 +127,8 @@ replicates = 5
     Note that the mean and standard deviation are found for each subset
     of training data and then applied to validation and test data
     when estimating accuracy.
-`n_max_iter` : int  
-    Number of iterations (AKA epochs) to train.  
+`nb_epoch` : int  
+    Number of epochs to train.  
 `val_error_step` : int  
     step at which to calculate validation error.  
     Every time iter modulo val_error_step is zero, the validation error

@@ -1,9 +1,44 @@
-# models from [1]
-# https://github.com/colincsl/TemporalConvolutionalNetworks
+# adapted from [1]_
+# and https://github.com/colincsl/TemporalConvolutionalNetworks
 #
 # [1]René, Colin Lea Michael D. Flynn, and Vidal Austin Reiter Gregory D. Hager.
 # "Temporal convolutional networks for action segmentation and detection." (2017).
 
+from keras.models import Model
+from keras.layers import Input, TimeDistributed
+from keras.layers.core import *
+from keras.layers.convolutional import *
+
+import tensorflow as tf
+from keras import backend as K
+
+from keras.activations import relu
+from functools import partial
+
+clipped_relu = partial(relu, max_value=5)
+
+
+# utility functions
+def max_filter(x):
+    # Max over the best filter score (like ICRA paper)
+    max_values = K.max(x, 2, keepdims=True)
+    max_flag = tf.greater_equal(x, max_values)
+    out = x * tf.cast(max_flag, tf.float32)
+    return out
+
+def channel_normalization(x):
+    # Normalize by the highest activation
+    max_values = K.max(K.abs(x), 2, keepdims=True)+1e-5
+    out = x / max_values
+    return out
+
+def WaveNet_activation(x):
+    tanh_out = Activation('tanh')(x)
+    sigm_out = Activation('sigmoid')(x)
+    return Merge(mode='mul')([tanh_out, sigm_out])
+
+
+# models
 def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
            loss='categorical_crossentropy', causal=False,
            optimizer="rmsprop", activation='norm_relu',
@@ -17,7 +52,7 @@ def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
     for i in range(n_layers):
         # Pad beginning of sequence to prevent usage of future data
         if causal: model = ZeroPadding1D((conv_len // 2, 0))(model)
-        model = Convolution1D(n_nodes[i], conv_len, border_mode='same')(model)
+        model = Conv1D(n_nodes[i], conv_len, padding='same')(model)
         if causal: model = Cropping1D((0, conv_len // 2))(model)
 
         model = SpatialDropout1D(0.3)(model)
@@ -154,4 +189,3 @@ def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
         return model, param_str
     else:
         return model
-

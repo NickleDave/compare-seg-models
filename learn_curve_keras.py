@@ -10,6 +10,7 @@ from configparser import ConfigParser, NoOptionError
 import numpy as np
 import joblib
 import yaml
+from sklearn.preprocessing import LabelBinarizer
 
 from seg_nets.keras_models import ED_TCN, Dilated_TCN
 import seg_nets.data_utils
@@ -132,6 +133,8 @@ if __name__ == "__main__":
     # transpose X_train, so rows are timebins and columns are frequency bins
     # because networks expect this orientation for input
     X_train = X_train.T
+    # for initializing networks below, need number of frequency bins
+    num_freq_bins = X_train.shape[-1]  # i.e. number of columns
     # save training set to get training accuracy in summary.py
     joblib.dump(X_train, os.path.join(results_dirname, 'X_train'))
     joblib.dump(Y_train, os.path.join(results_dirname, 'Y_train'))
@@ -197,9 +200,9 @@ if __name__ == "__main__":
     logger.info('will train network with batches of size {}'
                 .format(batch_size))
 
-    n_max_iter = int(config['TRAIN']['n_max_iter'])
-    logger.info('maximum number of training steps will be {}'
-                .format(n_max_iter))
+    nb_epoch = int(config['TRAIN']['nb_epoch'])
+    logger.info('number of training epochs will be {}'
+                .format(nb_epoch))
 
     normalize_spectrograms = config.getboolean('TRAIN', 'normalize_spectrograms')
     if normalize_spectrograms:
@@ -281,25 +284,38 @@ if __name__ == "__main__":
             input_vec_size = X_train_subset.shape[-1]  # number of columns
             logger.debug('input vec size: '.format(input_vec_size))
 
-            # gross, hacky array shuffling to deal with mishmash of code bases
-            X_in = np.concatenate((X_train_subset, X_val))
-            Y_in = np.concatenate((Y_train_subset, Y_val))
+
             spect_ID_vec_tmp = X_val_spect_ID_vector + (spect_ID_subset[-1] + 1)
             spect_ID_vec_tmp = np.concatenate((spect_ID_subset,
                                                spect_ID_vec_tmp))
+            max_len = np.max(
+                np.unique(spect_ID_vec_tmp, return_counts=True)[1])
+            if max_len % 2 != 0:
+                # make even so upsampling gives right output shape
+                max_len += 1
+            binarizer = LabelBinarizer()
+            binarizer.fit(np.concatenate((Y_train_subset.ravel(),
+                                          Y_val.ravel())))
 
-            (X_out,
-            Y_out,
-            mask_out) = reshape_inputs_and_make_masks(X_in,
-                                                       Y_in,
-                                                       spect_ID_vec_tmp,
-                                                       spect_pad_value=0,
-                                                       labels_pad_value=label_pad_value)
-            last_train_ind = np.unique(spect_ID_subset).shape[0]
-            import pdb;pdb.set_trace()
-            X_train_subset = X_out[:spect_ID_subset[-1], :, :, :]
+            (X_train_subset,
+            Y_train_subset,
+            masks_train_subset) = reshape_inputs_and_make_masks(X_train_subset,
+                                                                Y_train_subset,
+                                                                spect_ID_subset,
+                                                                binarizer,
+                                                                max_len=max_len,
+                                                                spect_pad_value=0,
+                                                                labels_pad_value=label_pad_value)
 
-
+            (X_val_batch,
+            Y_val_batch,
+            masks_val_batch) = reshape_inputs_and_make_masks(X_val,
+                                                             Y_val,
+                                                             X_val_spect_ID_vector,
+                                                             binarizer,
+                                                             max_len=max_len,
+                                                             spect_pad_value=0,
+                                                             labels_pad_value=label_pad_value)
 
             # save scaled reshaped data
             scaled_reshaped_data_filename = os.path.join(training_records_path,
@@ -307,8 +323,10 @@ if __name__ == "__main__":
                                                          .format(train_set_dur, replicate))
             scaled_reshaped_data_dict = {'X_train_subset_scaled_reshaped': X_train_subset,
                                          'Y_train_subset_reshaped': Y_train_subset,
+                                         'masks_train_subset': masks_train_subset,
                                          'X_val_scaled_batch': X_val_batch,
-                                         'Y_val_batch': Y_val_batch}
+                                         'Y_val_batch': Y_val_batch,
+                                         'masks_val_batch': masks_val_batch}
             joblib.dump(scaled_reshaped_data_dict, scaled_reshaped_data_filename)
 
             # n_syllables, i.e., number of label classes to predict
@@ -325,6 +343,9 @@ if __name__ == "__main__":
             logger.debug('n_syllables: '.format(n_syllables))
 
             networks_config_file = config['NETWORK']['config_file']
+            networks_config_path = config['NETWORK']['config_path']
+            networks_config_file = os.path.join(networks_config_path,
+                                                networks_config_file)
             with open(networks_config_file,'r') as yml:
                 networks_config = yaml.load(yml)
 
@@ -335,7 +356,7 @@ if __name__ == "__main__":
                                               conv_len=model_config['conv_len'],
                                               n_classes=n_syllables,
                                               n_feat=num_freq_bins,
-                                              max_len=batch_spec_rows,
+                                              max_len=max_len,
                                               causal=model_config['causal'],
                                               activation=model_config['activation'],
                                               return_param_str=True)
@@ -349,10 +370,11 @@ if __name__ == "__main__":
                                                    max_len=max_len,
                                                    causal=causal,
                                                    return_param_str=True)
+                    models.append(model)
             for model in models:
-                model.fit(X_train_m,
-                          Y_train_,
+                model.fit(X_train_subset,
+                          Y_train_subset,
                           nb_epoch=nb_epoch,
                           batch_size=batch_size,
                           verbose=1,
-                          sample_weight=M_train[:, :, 0])
+                          sample_weight=masks_train_subset[:, :, 0])

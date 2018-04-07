@@ -1,6 +1,8 @@
 models:
   ED_TCN:
-    n_nodes: 64, 96
+    n_nodes:
+     - 64
+     - 96
     conv_len: 25
     loss: categorical_crossentropy
     causal: False

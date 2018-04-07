@@ -947,6 +947,7 @@ def range_str(range_str, sort=True):
 def reshape_inputs_and_make_masks(X,
                                   Y,
                                   spect_ID_vector,
+                                  binarizer,
                                   spect_pad_value=0,
                                   labels_pad_value=0,
                                   max_len=None):
@@ -971,17 +972,18 @@ def reshape_inputs_and_make_masks(X,
         labels.append(Y[spect_ID_inds])
         lengths.append(X[spect_ID_inds,:].shape[0])
 
+    if max_len is None:
+        max_len = np.max(lengths)
+
     # now pad and make masks
-    max_len = np.max(lengths)
     X_ = np.zeros((len(spects), max_len, X.shape[1])) + spect_pad_value
-    Y_ = np.zeros((len(spects), max_len, 1)) + labels_pad_value
-    mask = np.zeros([len(X), max_len])
+    Y_ = np.zeros((len(spects),
+                   max_len,
+                   len(binarizer.classes_))) + labels_pad_value
+    mask = np.zeros([len(spects), max_len])
     for i in range(len(spects)):
         length = spects[i].shape[0]
         X_[i, :length, :] = spects[i]
-        Y_[i, :length] = labels[i]
+        Y_[i, :length, :] = binarizer.transform(labels[i])
         mask[i, :length] = 1
-    # add 4th "channel" dimension of length 1 to spectrograms
-    # (just because networks expect this 4th channel dimension)
-    X_ = X_[:, :, :, np.newaxis]
     return X_, Y_, mask[:,:,None]
