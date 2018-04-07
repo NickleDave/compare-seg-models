@@ -13,6 +13,7 @@ import yaml
 
 from seg_nets.keras_models import ED_TCN, Dilated_TCN
 import seg_nets.data_utils
+from seg_nets.data_utils import reshape_inputs_and_make_masks
 
 if __name__ == "__main__":
     config_file = os.path.normpath(sys.argv[1])
@@ -143,8 +144,10 @@ if __name__ == "__main__":
     val_data_dict_path = config['TRAIN']['val_data_path']
     val_data_dict = joblib.load(val_data_dict_path)
     (X_val,
-     Y_val) = (val_data_dict['X_val'],
-               val_data_dict['Y_val'])
+     Y_val,
+     X_val_spect_ID_vector) = (val_data_dict['X_val'],
+                               val_data_dict['Y_val'],
+                               val_data_dict['spect_ID_vector'],)
 
     if val_data_dict['spect_params'] != spect_params:
         raise ValueError('Spectrogram parameters in config file '
@@ -191,10 +194,8 @@ if __name__ == "__main__":
 
     # set params used for sending data to graph in batches
     batch_size = int(config['NETWORK']['batch_size'])
-    time_steps = int(config['NETWORK']['time_steps'])
-    logger.info('will train network with batches of size {}, '
-                'where each spectrogram in batch contains {} time steps'
-                .format(batch_size, time_steps))
+    logger.info('will train network with batches of size {}'
+                .format(batch_size))
 
     n_max_iter = int(config['TRAIN']['n_max_iter'])
     logger.info('maximum number of training steps will be {}'
@@ -218,12 +219,12 @@ if __name__ == "__main__":
                    'Please add previous_run_path to config file.'
                    .format(config_file))
 
+    label_pad_value = max(labels_mapping.values()) + 1
+    logger.info('will pad label vectors with value: {}'
+                .format(label_pad_value))
+
     for train_set_dur in TRAIN_SET_DURS:
         for replicate in REPLICATES:
-            costs = []
-            val_errs = []
-            curr_min_err = 1  # i.e. 100%
-            err_patience_counter = 0
 
             logger.info("training with training set duration of {} seconds,"
                         "replicate #{}".format(train_set_dur, replicate))
@@ -257,8 +258,7 @@ if __name__ == "__main__":
                 pickle.dump(train_inds, train_inds_file)
             X_train_subset = X_train[train_inds, :]
             Y_train_subset = Y_train[train_inds]
-
-            import pdb;pdb.set_trace()
+            spect_ID_subset = X_train_spect_ID_vector[train_inds]
 
             if normalize_spectrograms:
                 spect_scaler = seg_nets.data_utils.SpectScaler()
@@ -278,49 +278,28 @@ if __name__ == "__main__":
                                 'Y_train_subset': Y_train_subset}
             joblib.dump(scaled_data_dict, scaled_data_filename)
 
-            # reshape data for network
-            batch_spec_rows = len(train_inds) // batch_size
-
-            # this is the original way reshaping was done
-            # note that reshaping this way can truncate data set
-            X_train_subset = \
-                X_train_subset[0:batch_spec_rows * batch_size].reshape((batch_size,
-                                                                        batch_spec_rows,
-                                                                        -1))
-            Y_train_subset = \
-                Y_train_subset[0:batch_spec_rows * batch_size].reshape((batch_size,
-                                                                        -1))
-            reshape_size = Y_train_subset.ravel().shape[-1]
-            diff = train_inds.shape[-1] - reshape_size
-            logger.info('Number of time bins after '
-                        'reshaping training data: {}.'.format(reshape_size))
-            logger.info('Number of time bins less '
-                        'than specified {}: {}'.format(train_inds.shape[-1],
-                                                       diff))
-            logger.info('Difference in seconds: {}'.format(diff * timebin_dur))
-
-            # note that X_train_subset has shape of (batch, time_bins, frequency_bins)
-            # so we permute starting indices from the number of time_bins
-            # i.e. X_train_subset.shape[1]
-            iter_order = np.random.permutation(X_train_subset.shape[1] - time_steps)
-            if len(iter_order) > n_max_iter:
-                iter_order = iter_order[0:n_max_iter]
-            with open(
-                    os.path.join(training_records_path,
-                                 "iter_order"),
-                    'wb') as iter_order_file:
-                pickle.dump(iter_order, iter_order_file)
-
             input_vec_size = X_train_subset.shape[-1]  # number of columns
             logger.debug('input vec size: '.format(input_vec_size))
 
-            (X_val_batch,
-             Y_val_batch,
-             num_batches_val) = seg_nets.data_utils.reshape_data_for_batching(X_val,
-                                                                              Y_val,
-                                                                              batch_size,
-                                                                              time_steps,
-                                                                              input_vec_size)
+            # gross, hacky array shuffling to deal with mishmash of code bases
+            X_in = np.concatenate((X_train_subset, X_val))
+            Y_in = np.concatenate((Y_train_subset, Y_val))
+            spect_ID_vec_tmp = X_val_spect_ID_vector + (spect_ID_subset[-1] + 1)
+            spect_ID_vec_tmp = np.concatenate((spect_ID_subset,
+                                               spect_ID_vec_tmp))
+
+            (X_out,
+            Y_out,
+            mask_out) = reshape_inputs_and_make_masks(X_in,
+                                                       Y_in,
+                                                       spect_ID_vec_tmp,
+                                                       spect_pad_value=0,
+                                                       labels_pad_value=label_pad_value)
+            last_train_ind = np.unique(spect_ID_subset).shape[0]
+            import pdb;pdb.set_trace()
+            X_train_subset = X_out[:spect_ID_subset[-1], :, :, :]
+
+
 
             # save scaled reshaped data
             scaled_reshaped_data_filename = os.path.join(training_records_path,
@@ -358,15 +337,22 @@ if __name__ == "__main__":
                                               n_feat=num_freq_bins,
                                               max_len=batch_spec_rows,
                                               causal=model_config['causal'],
-                                              activation=model-config['activation'],
+                                              activation=model_config['activation'],
                                               return_param_str=True)
                     models.append(model)
-                elif model_type = 'Dilated_TCN'
-
+                elif model_type == 'Dilated_TCN':
+                    model, param_str = Dilated_TCN(num_feat=num_freq_bins,
+                                                   num_classes=n_syllables,
+                                                   nb_filters=model_config['nb_filters'],
+                                                   dilation_depth=L,
+                                                   nb_stacks=B,
+                                                   max_len=max_len,
+                                                   causal=causal,
+                                                   return_param_str=True)
             for model in models:
                 model.fit(X_train_m,
                           Y_train_,
                           nb_epoch=nb_epoch,
-                          batch_size=8,
+                          batch_size=batch_size,
                           verbose=1,
                           sample_weight=M_train[:, :, 0])

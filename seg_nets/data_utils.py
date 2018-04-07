@@ -943,3 +943,45 @@ def range_str(range_str, sort=True):
         list_range.sort()
 
     return [str(list_int) for list_int in list_range]
+
+def reshape_inputs_and_make_masks(X,
+                                  Y,
+                                  spect_ID_vector,
+                                  spect_pad_value=0,
+                                  labels_pad_value=0,
+                                  max_len=None):
+    """reshape inputs for use with networks, make masks that
+    tell network which regions are padding to be ignored.
+
+    takes one long matrix that is many concatenated spectrograms,
+    splits it into constituent spectrograms,
+    pads them so they'are all the same length,
+    does the same with labels for each time bin in the spectrogram,
+    and in addition makes masks denoting which elements of matrices
+    are padded portions of spectrogram
+    """
+    # first have to split into constituent spectrograms / label vectors
+    spect_IDs = np.unique(spect_ID_vector)
+    spects = []
+    labels = []
+    lengths = []
+    for spect_ID in spect_IDs:
+        spect_ID_inds = spect_ID_vector == spect_ID
+        spects.append(X[spect_ID_inds,:])
+        labels.append(Y[spect_ID_inds])
+        lengths.append(X[spect_ID_inds,:].shape[0])
+
+    # now pad and make masks
+    max_len = np.max(lengths)
+    X_ = np.zeros((len(spects), max_len, X.shape[1])) + spect_pad_value
+    Y_ = np.zeros((len(spects), max_len, 1)) + labels_pad_value
+    mask = np.zeros([len(X), max_len])
+    for i in range(len(spects)):
+        length = spects[i].shape[0]
+        X_[i, :length, :] = spects[i]
+        Y_[i, :length] = labels[i]
+        mask[i, :length] = 1
+    # add 4th "channel" dimension of length 1 to spectrograms
+    # (just because networks expect this 4th channel dimension)
+    X_ = X_[:, :, :, np.newaxis]
+    return X_, Y_, mask[:,:,None]
