@@ -5,9 +5,12 @@
 # "Temporal convolutional networks for action segmentation and detection." (2017).
 
 from keras.models import Model
-from keras.layers import Input, TimeDistributed, Add, Multiply
-from keras.layers.core import *
-from keras.layers.convolutional import *
+from keras.layers import Input, TimeDistributed, Add, Multiply, Dense, Reshape
+from keras.layers.core import Activation, SpatialDropout1D, Lambda
+from keras.layers.convolutional import Conv1D, Conv2D, ZeroPadding1D, Cropping1D
+from keras.layers.convolutional import MaxPooling1D, MaxPooling2D, UpSampling1D
+from keras.layers import Bidirectional
+from keras.layers.recurrent import LSTM
 
 import tensorflow as tf
 from keras import backend as K
@@ -55,8 +58,7 @@ def ed_tcn_output_size(input, n_nodes, pool_size=2):
 # models
 def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
            loss='categorical_crossentropy', causal=False,
-           optimizer="rmsprop", activation='norm_relu',
-           return_param_str=False):
+           optimizer="rmsprop", activation='norm_relu'):
     n_layers = len(n_nodes)
 
     inputs = Input(shape=(max_len, n_feat))
@@ -106,21 +108,13 @@ def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
     model = Model(inputs=inputs, outputs=model)
     model.compile(loss=loss, optimizer=optimizer, sample_weight_mode="temporal",
                   metrics=['accuracy'])
-
-    if return_param_str:
-        param_str = "ED-TCN_C{}_L{}".format(conv_len, n_layers)
-        if causal:
-            param_str += "_causal"
-
-        return model, param_str
-    else:
-        return model
+    return model
 
 
 def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
                 max_len, activation="wavenet", tail_conv=1,
                 use_skip_connections=True, causal=False,
-                optimizer='adam', return_param_str=False):
+                optimizer='adam', loss='categorical_crossentropy'):
     """
     dilation_depth : number of layers per stack
     nb_stacks : number of stacks.
@@ -187,14 +181,33 @@ def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
     x = Activation('softmax', name='output_softmax')(x)
 
     model = Model(inputs=input_layer, outputs=x)
-    model.compile(loss='categorical_crossentropy', optimizer=optimizer,
+    model.compile(loss=loss, optimizer=optimizer,
                   sample_weight_mode="temporal",metrics=['accuracy'])
+    return model
 
-    if return_param_str:
-        param_str = "D-TCN_C{}_B{}_L{}".format(2, nb_stacks, dilation_depth)
-        if causal:
-            param_str += "_causal"
 
-        return model, param_str
-    else:
-        return model
+def CNN_biLSTM(n_classes, n_feat, max_len,
+               n_filters_by_layer=(32, 64),
+               loss='categorical_crossentropy',
+               optimizer='Adam'):
+    inputs = Input(shape=(max_len, n_feat, 1))
+
+    x = inputs
+    new_shape = (-1, time_steps, n_feat, 1)
+    X = Reshape(new_shape)(x)
+    for n_filters in n_filters_by_layer:
+        x = Conv2D(n_filters, kernel_size=(5, 5),
+                   padding="same", activation='relu')(x)
+        x = MaxPooling2D(pool_size=(1, 8),
+                         strides=(1, 8))(x)
+    conv_out_shape = x.get_shape().as_list()
+    num_hidden = conv_out_shape[2] * conv_out_shape[3]
+    new_shape = (-1, num_hidden)
+    x = Reshape(new_shape)(x)
+    x = Bidirectional(
+        LSTM(num_hidden, return_sequences=True, dropout=0.25,
+             recurrent_dropout=0.1))(x)
+    x = TimeDistributed(Dense(n_classes, activation="softmax"))(x)
+    model = Model(inputs=inputs, outputs = x)
+    model.compile(loss=loss, optimizer=optimizer,metrics=['accuracy'])
+    return model

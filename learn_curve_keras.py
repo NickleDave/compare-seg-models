@@ -13,7 +13,8 @@ import yaml
 from sklearn.preprocessing import LabelBinarizer
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 
-from seg_nets.keras_models import ED_TCN, Dilated_TCN, ed_tcn_output_size
+from seg_nets.keras_models import ed_tcn_output_size
+from seg_nets.keras_models import ED_TCN, Dilated_TCN, CNN_biLSTM
 import seg_nets.data_utils
 from seg_nets.data_utils import reshape_inputs_and_make_masks
 
@@ -295,7 +296,8 @@ if __name__ == "__main__":
             with open(networks_config_file,'r') as yml:
                 networks_config = yaml.load(yml)
 
-            if "ED_TCN" in networks_config['models']:
+            if any(model_config['type']=="ED_TCN"
+                   for _, model_config in networks_config['models'].items()):
                 iter = 0
                 n_nodes = networks_config['models']['ED_TCN']['n_nodes']
                 while max_len != ed_tcn_output_size(max_len, n_nodes):
@@ -359,27 +361,44 @@ if __name__ == "__main__":
             models = []
             for model_name, model_config in networks_config['models'].items():
                 if model_config['type'] == "ED_TCN":
-                    model, param_str = ED_TCN(n_nodes=model_config['n_nodes'],
-                                              conv_len=model_config['conv_len'],
-                                              n_classes=n_syllables,
-                                              n_feat=num_freq_bins,
-                                              max_len=max_len,
-                                              causal=model_config['causal'],
-                                              activation=model_config['activation'],
-                                              return_param_str=True)
+                    if Y_train_subset.shape[1] != ed_tcn_output_size(X_train_subset.shape[1],
+                                                                     model_config['n_nodes']):
+                        raise ValueError('ED_TCN output does not equal input, '
+                                         'check whether max_len was adjusted to '
+                                         'appropriate length so that output equals'
+                                         'input after max pooling then upsampling.')
+                    model = ED_TCN(n_nodes=model_config['n_nodes'],
+                                   conv_len=model_config['conv_len'],
+                                   n_classes=n_syllables,
+                                   n_feat=num_freq_bins,
+                                   max_len=max_len,
+                                   causal=model_config['causal'],
+                                   activation=model_config['activation'],
+                                   optimizer=model_config['optimizer'],
+                                   loss=model_config['loss'])
 
 
                 elif model_config['type'] == 'Dilated_TCN':
-                    model, param_str = Dilated_TCN(num_feat=num_freq_bins,
-                                                   num_classes=n_syllables,
-                                                   nb_filters=model_config['nb_filters'],
-                                                   dilation_depth=model_config['dilation_depth'],
-                                                   nb_stacks=model_config['nb_stacks'],
-                                                   max_len=max_len,
-                                                   causal=model_config['causal'],
-                                                   return_param_str=True)
+                    model = Dilated_TCN(num_feat=num_freq_bins,
+                                        num_classes=n_syllables,
+                                        nb_filters=model_config['nb_filters'],
+                                        dilation_depth=model_config[
+                                            'dilation_depth'],
+                                        nb_stacks=model_config['nb_stacks'],
+                                        max_len=max_len,
+                                        causal=model_config['causal'],
+                                        optimizer=model_config['optimizer'],
+                                        loss=model_config['loss'])
 
-                model_dict = {'name': model_name,
+                elif model_config['type'] == 'CNN_biLSTM':
+                    model = CNN_biLSTM(n_classes=n_syllables,
+                                       n_feat=num_freq_bins,
+                                       max_len=max_len,
+                                       n_filters_by_layer=model_config['n_filters_by_layer'],
+                                       loss=model_config['loss'],
+                                       optimizer=model_config['optimizer'])
+
+                    model_dict = {'name': model_name,
                               'type': model_config['type'],
                               'obj': model}
                 models.append(model_dict)
@@ -406,12 +425,15 @@ if __name__ == "__main__":
                                              verbose=1,
                                              mode='auto')
 
-                model_dict['obj'].fit(X_train_subset,
-                                      Y_train_subset,
-                                      epochs=nb_epoch,
-                                      batch_size=batch_size,
-                                      verbose=1,
-                                      sample_weight=masks_train_subset[:, :, 0],
-                                      validation_data=val_data,
-                                      callbacks=[checkpointer,
-                                                 earlystopper])
+                try:
+                    model_dict['obj'].fit(X_train_subset,
+                                          Y_train_subset,
+                                          epochs=nb_epoch,
+                                          batch_size=batch_size,
+                                          verbose=1,
+                                          sample_weight=masks_train_subset[:, :, 0],
+                                          validation_data=val_data,
+                                          callbacks=[checkpointer,
+                                                     earlystopper])
+                except ValueError:
+                    import IPython;IPython.embed()
