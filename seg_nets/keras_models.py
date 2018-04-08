@@ -103,7 +103,7 @@ def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
     # Output FC layer
     model = TimeDistributed(Dense(n_classes, activation="softmax"))(model)
 
-    model = Model(input=inputs, output=model)
+    model = Model(inputs=inputs, outputs=model)
     model.compile(loss=loss, optimizer=optimizer, sample_weight_mode="temporal",
                   metrics=['accuracy'])
 
@@ -171,8 +171,7 @@ def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
                    name='initial_conv')(x)
         x = Cropping1D((0, 1))(x)
     else:
-        x = Convolution1D(nb_filters, 3, border_mode='same',
-                          name='initial_conv')(x)
+        x = Conv1D(nb_filters, 3, padding='same', name='initial_conv')(x)
 
     for s in range(nb_stacks):
         for i in range(0, dilation_depth + 1):
@@ -187,7 +186,7 @@ def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
     x = Conv1D(num_classes, tail_conv, padding='same')(x)
     x = Activation('softmax', name='output_softmax')(x)
 
-    model = Model(input_layer, x)
+    model = Model(inputs=input_layer, outputs=x)
     model.compile(loss='categorical_crossentropy', optimizer=optimizer,
                   sample_weight_mode="temporal",metrics=['accuracy'])
 

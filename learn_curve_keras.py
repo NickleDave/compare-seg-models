@@ -402,7 +402,7 @@ if __name__ == "__main__":
                                                mode='auto', period=1)
                 earlystopper = EarlyStopping(monitor='val_loss',
                                              min_delta=0.001,
-                                             patience=500,
+                                             patience=patience,
                                              verbose=1,
                                              mode='auto')
 
