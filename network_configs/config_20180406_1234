@@ -1,9 +1,23 @@
 models:
+
   ED_TCN:
+    type: ED_TCN
     n_nodes:
      - 64
      - 96
     conv_len: 25
+    loss: categorical_crossentropy
+    causal: False
+    optimizer: rmsprop
+    activation: norm_relu
+    return_param_str: False
+
+  Dilated_TCN:
+    type: Dilated_TCN
+    nb_filters: 128
+    conv_len: 25
+    dilation_depth: 4
+    nb_stacks: 3
     loss: categorical_crossentropy
     causal: False
     optimizer: rmsprop

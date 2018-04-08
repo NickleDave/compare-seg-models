@@ -11,8 +11,9 @@ import numpy as np
 import joblib
 import yaml
 from sklearn.preprocessing import LabelBinarizer
+from keras.callbacks import ModelCheckpoint, EarlyStopping
 
-from seg_nets.keras_models import ED_TCN, Dilated_TCN
+from seg_nets.keras_models import ED_TCN, Dilated_TCN, ed_tcn_output_size
 import seg_nets.data_utils
 from seg_nets.data_utils import reshape_inputs_and_make_masks
 
@@ -237,10 +238,6 @@ if __name__ == "__main__":
             training_records_path = os.path.join(results_dirname,
                                                  training_records_dir)
 
-            checkpoint_filename = ('checkpoint_train_set_dur_'
-                                   + str(train_set_dur) +
-                                   '_sec_replicate_'
-                                   + str(replicate))
             if not os.path.isdir(training_records_path):
                 os.makedirs(training_records_path)
 
@@ -290,9 +287,24 @@ if __name__ == "__main__":
                                                spect_ID_vec_tmp))
             max_len = np.max(
                 np.unique(spect_ID_vec_tmp, return_counts=True)[1])
-            if max_len % 2 != 0:
-                # make even so upsampling gives right output shape
-                max_len += 1
+
+            networks_config_file = config['NETWORK']['config_file']
+            networks_config_path = config['NETWORK']['config_path']
+            networks_config_file = os.path.join(networks_config_path,
+                                                networks_config_file)
+            with open(networks_config_file,'r') as yml:
+                networks_config = yaml.load(yml)
+
+            if "ED_TCN" in networks_config['models']:
+                iter = 0
+                n_nodes = networks_config['models']['ED_TCN']['n_nodes']
+                while max_len != ed_tcn_output_size(max_len, n_nodes):
+                    max_len += 1
+                    iter += 1
+                    if iter > 50:
+                        raise ValueError("couldn't find max_len "
+                                         "that worked with ED_TCN")
+
             binarizer = LabelBinarizer()
             binarizer.fit(np.concatenate((Y_train_subset.ravel(),
                                           Y_val.ravel())))
@@ -316,6 +328,8 @@ if __name__ == "__main__":
                                                              max_len=max_len,
                                                              spect_pad_value=0,
                                                              labels_pad_value=label_pad_value)
+
+            val_data = (X_val_batch, Y_val_batch, masks_val_batch[:, :, 0])
 
             # save scaled reshaped data
             scaled_reshaped_data_filename = os.path.join(training_records_path,
@@ -342,16 +356,9 @@ if __name__ == "__main__":
             n_syllables = len(labels_mapping)
             logger.debug('n_syllables: '.format(n_syllables))
 
-            networks_config_file = config['NETWORK']['config_file']
-            networks_config_path = config['NETWORK']['config_path']
-            networks_config_file = os.path.join(networks_config_path,
-                                                networks_config_file)
-            with open(networks_config_file,'r') as yml:
-                networks_config = yaml.load(yml)
-
             models = []
-            for model_type, model_config in networks_config['models'].items():
-                if model_type == "ED_TCN":
+            for model_name, model_config in networks_config['models'].items():
+                if model_config['type'] == "ED_TCN":
                     model, param_str = ED_TCN(n_nodes=model_config['n_nodes'],
                                               conv_len=model_config['conv_len'],
                                               n_classes=n_syllables,
@@ -360,21 +367,51 @@ if __name__ == "__main__":
                                               causal=model_config['causal'],
                                               activation=model_config['activation'],
                                               return_param_str=True)
-                    models.append(model)
-                elif model_type == 'Dilated_TCN':
+
+
+                elif model_config['type'] == 'Dilated_TCN':
                     model, param_str = Dilated_TCN(num_feat=num_freq_bins,
                                                    num_classes=n_syllables,
                                                    nb_filters=model_config['nb_filters'],
-                                                   dilation_depth=L,
-                                                   nb_stacks=B,
+                                                   dilation_depth=model_config['dilation_depth'],
+                                                   nb_stacks=model_config['nb_stacks'],
                                                    max_len=max_len,
-                                                   causal=causal,
+                                                   causal=model_config['causal'],
                                                    return_param_str=True)
-                    models.append(model)
-            for model in models:
-                model.fit(X_train_subset,
-                          Y_train_subset,
-                          nb_epoch=nb_epoch,
-                          batch_size=batch_size,
-                          verbose=1,
-                          sample_weight=masks_train_subset[:, :, 0])
+
+                model_dict = {'name': model_name,
+                              'type': model_config['type'],
+                              'obj': model}
+                models.append(model_dict)
+
+            for model_dict in models:
+                print('training model: {}'.format(model_dict['name']))
+                print('model type: {}'.format(model_dict['type']))
+                checkpoint_filename = ('checkpoint_'
+                                       + model_dict['name'] +
+                                       '_train_set_dur_'
+                                       + str(train_set_dur) +
+                                       '_sec_replicate_'
+                                       + str(replicate))
+                checkpoint_filename = os.path.join(training_records_path,
+                                                   checkpoint_filename)
+                checkpointer = ModelCheckpoint(checkpoint_filename,
+                                               monitor='val_acc',
+                                               save_best_only=True,
+                                               save_weights_only=False,
+                                               mode='auto', period=1)
+                earlystopper = EarlyStopping(monitor='val_loss',
+                                             min_delta=0.001,
+                                             patience=500,
+                                             verbose=1,
+                                             mode='auto')
+
+                model_dict['obj'].fit(X_train_subset,
+                                      Y_train_subset,
+                                      epochs=nb_epoch,
+                                      batch_size=batch_size,
+                                      verbose=1,
+                                      sample_weight=masks_train_subset[:, :, 0],
+                                      validation_data=val_data,
+                                      callbacks=[checkpointer,
+                                                 earlystopper])

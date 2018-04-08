@@ -5,7 +5,7 @@
 # "Temporal convolutional networks for action segmentation and detection." (2017).
 
 from keras.models import Model
-from keras.layers import Input, TimeDistributed
+from keras.layers import Input, TimeDistributed, Add, Multiply
 from keras.layers.core import *
 from keras.layers.convolutional import *
 
@@ -35,7 +35,21 @@ def channel_normalization(x):
 def WaveNet_activation(x):
     tanh_out = Activation('tanh')(x)
     sigm_out = Activation('sigmoid')(x)
-    return Merge(mode='mul')([tanh_out, sigm_out])
+    return Multiply()([tanh_out, sigm_out])
+
+def pool_output(input, pool_size, stride):
+    return ((input - pool_size) // stride) + 1
+
+def upsample_output(input, size):
+    return input * size
+
+def ed_tcn_output_size(input, n_nodes, pool_size=2):
+    output = input
+    for encoder_layer in range(len(n_nodes)):
+        output = pool_output(output, pool_size, pool_size)
+    for decoder_layer in range(len(n_nodes)):
+        output = upsample_output(output, pool_size)
+    return output
 
 
 # models
@@ -72,8 +86,7 @@ def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
     for i in range(n_layers):
         model = UpSampling1D(2)(model)
         if causal: model = ZeroPadding1D((conv_len // 2, 0))(model)
-        model = Convolution1D(n_nodes[-i - 1], conv_len, border_mode='same')(
-            model)
+        model = Conv1D(n_nodes[-i - 1], conv_len, padding='same')(model)
         if causal: model = Cropping1D((0, conv_len // 2))(model)
 
         model = SpatialDropout1D(0.3)(model)
@@ -105,9 +118,8 @@ def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
 
 
 def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
-                max_len,
-                activation="wavenet", tail_conv=1, use_skip_connections=True,
-                causal=False,
+                max_len, activation="wavenet", tail_conv=1,
+                use_skip_connections=True, causal=False,
                 optimizer='adam', return_param_str=False):
     """
     dilation_depth : number of layers per stack
@@ -119,16 +131,14 @@ def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
 
         if causal:
             x = ZeroPadding1D(((2 ** i) // 2, 0))(x)
-            conv = AtrousConvolution1D(nb_filters, 2, atrous_rate=2 ** i,
-                                       border_mode='same',
-                                       name='dilated_conv_%d_tanh_s%d' % (
-                                       2 ** i, s))(x)
+            conv = Conv1D(nb_filters, 2, dilation_rate=2 ** i,
+                          padding='same',
+                          name='dilated_conv_%d_tanh_s%d' % (2 ** i, s))(x)
             conv = Cropping1D((0, (2 ** i) // 2))(conv)
         else:
-            conv = AtrousConvolution1D(nb_filters, 3, atrous_rate=2 ** i,
-                                       border_mode='same',
-                                       name='dilated_conv_%d_tanh_s%d' % (
-                                       2 ** i, s))(x)
+            conv = Conv1D(nb_filters, 3, dilation_rate=2 ** i,
+                          padding='same',
+                          name='dilated_conv_%d_tanh_s%d' % (2 ** i, s))(x)
 
         conv = SpatialDropout1D(0.3)(conv)
         # x = WaveNet_activation(conv)
@@ -143,9 +153,9 @@ def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
 
             # res_x  = Convolution1D(nb_filters, 1, border_mode='same')(x)
         # skip_x = Convolution1D(nb_filters, 1, border_mode='same')(x)
-        x = Convolution1D(nb_filters, 1, border_mode='same')(x)
+        x = Conv1D(nb_filters, 1, padding='same')(x)
 
-        res_x = Merge(mode='sum')([original_x, x])
+        res_x = Add()([original_x, x])
 
         # return res_x, skip_x
         return res_x, x
@@ -157,8 +167,8 @@ def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
     x = input_layer
     if causal:
         x = ZeroPadding1D((1, 0))(x)
-        x = Convolution1D(nb_filters, 2, border_mode='same',
-                          name='initial_conv')(x)
+        x = Conv1D(nb_filters, 2, padding='same',
+                   name='initial_conv')(x)
         x = Cropping1D((0, 1))(x)
     else:
         x = Convolution1D(nb_filters, 3, border_mode='same',
@@ -170,16 +180,16 @@ def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
             skip_connections.append(skip_out)
 
     if use_skip_connections:
-        x = Merge(mode='sum')(skip_connections)
+        x = Add()(skip_connections)
     x = Activation('relu')(x)
-    x = Convolution1D(nb_filters, tail_conv, border_mode='same')(x)
+    x = Conv1D(nb_filters, tail_conv, padding='same')(x)
     x = Activation('relu')(x)
-    x = Convolution1D(num_classes, tail_conv, border_mode='same')(x)
+    x = Conv1D(num_classes, tail_conv, padding='same')(x)
     x = Activation('softmax', name='output_softmax')(x)
 
     model = Model(input_layer, x)
-    model.compile(optimizer, loss='categorical_crossentropy',
-                  sample_weight_mode='temporal')
+    model.compile(loss='categorical_crossentropy', optimizer=optimizer,
+                  sample_weight_mode="temporal",metrics=['accuracy'])
 
     if return_param_str:
         param_str = "D-TCN_C{}_B{}_L{}".format(2, nb_stacks, dilation_depth)
