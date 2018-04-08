@@ -299,13 +299,15 @@ if __name__ == "__main__":
             if any(model_config['type']=="ED_TCN"
                    for _, model_config in networks_config['models'].items()):
                 iter = 0
-                n_nodes = networks_config['models']['ED_TCN']['n_nodes']
-                while max_len != ed_tcn_output_size(max_len, n_nodes):
-                    max_len += 1
-                    iter += 1
-                    if iter > 50:
-                        raise ValueError("couldn't find max_len "
-                                         "that worked with ED_TCN")
+                for _, model_config in networks_config['models'].items():
+                    if model_config['type']=="ED_TCN":
+                        n_nodes = model_config['n_nodes']
+                        while max_len != ed_tcn_output_size(max_len, n_nodes):
+                            max_len += 1
+                            iter += 1
+                            if iter > 50:
+                                raise ValueError("couldn't find max_len "
+                                                 "that worked with ED_TCN")
 
             binarizer = LabelBinarizer()
             binarizer.fit(np.concatenate((Y_train_subset.ravel(),
@@ -398,7 +400,7 @@ if __name__ == "__main__":
                                        loss=model_config['loss'],
                                        optimizer=model_config['optimizer'])
 
-                    model_dict = {'name': model_name,
+                model_dict = {'name': model_name,
                               'type': model_config['type'],
                               'obj': model}
                 models.append(model_dict)
