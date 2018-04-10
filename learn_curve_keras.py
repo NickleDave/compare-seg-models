@@ -462,7 +462,6 @@ if __name__ == "__main__":
                                             write_grads=True,
                                             write_images=True)
 
-
                 history = model_dict['obj'].fit(X_train_subset,
                                                 Y_train_subset,
                                                 epochs=nb_epoch,
@@ -472,7 +471,8 @@ if __name__ == "__main__":
                                                 validation_data=val_data,
                                                 callbacks=[checkpointer,
                                                            earlystopper,
-                                                           tensorboarder])
+                                                           #tensorboarder,
+                                                           ])
                 history_filename = os.path.join(training_records_path,
                                                 model_dict['name']
                                                 + '_history')

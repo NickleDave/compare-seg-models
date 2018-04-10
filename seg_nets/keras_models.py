@@ -106,8 +106,7 @@ def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
     model = TimeDistributed(Dense(n_classes, activation="softmax"))(model)
 
     model = Model(inputs=inputs, outputs=model)
-    model.compile(loss=loss, optimizer=optimizer, sample_weight_mode="temporal",
-                  metrics=['accuracy'])
+    model.compile(loss=loss, optimizer=optimizer, metrics=['accuracy'])
     return model
 
 
@@ -181,8 +180,7 @@ def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
     x = Activation('softmax', name='output_softmax')(x)
 
     model = Model(inputs=input_layer, outputs=x)
-    model.compile(loss=loss, optimizer=optimizer,
-                  sample_weight_mode="temporal",metrics=['accuracy'])
+    model.compile(loss=loss, optimizer=optimizer,metrics=['accuracy'])
     return model
 
 
@@ -209,6 +207,5 @@ def CNN_biLSTM(n_classes, n_feat, max_len,
              recurrent_dropout=0.1))(x)
     x = TimeDistributed(Dense(n_classes, activation="softmax"))(x)
     model = Model(inputs=inputs, outputs = x)
-    model.compile(loss=loss, optimizer=optimizer,
-                  sample_weight_mode = "temporal",metrics=['accuracy'])
+    model.compile(loss=loss, optimizer=optimizer, metrics=['accuracy'])
     return model

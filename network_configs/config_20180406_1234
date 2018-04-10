@@ -1,16 +1,21 @@
 models:
 
-  CNN_biLSTM:
-    type: CNN_biLSTM
-    n_filters_by_layer:
-     - 32
-     - 64
-    loss: categorical_crossentropy
-    optimizer: Adam
-
   ED_TCN_25:
     type: ED_TCN
     n_nodes:
+     - 64
+     - 96
+    conv_len: 25
+    loss: categorical_crossentropy
+    causal: False
+    optimizer: rmsprop
+    activation: norm_relu
+    return_param_str: False
+
+  ED_TCN_25_3_layers:
+    type: ED_TCN
+    n_nodes:
+     - 32
      - 64
      - 96
     conv_len: 25
@@ -32,6 +37,25 @@ models:
     activation: norm_relu
     return_param_str: False
 
+  Dilated_TCN_25_more_layers:
+    type: Dilated_TCN
+    nb_filters: 128
+    conv_len: 25
+    dilation_depth: 6
+    nb_stacks: 4
+    loss: categorical_crossentropy
+    causal: False
+    optimizer: rmsprop
+    activation: norm_relu
+    return_param_str: False
+
+  CNN_biLSTM:
+    type: CNN_biLSTM
+    n_filters_by_layer:
+     - 32
+     - 64
+    loss: categorical_crossentropy
+    optimizer: Adam
 
 #  ED_TCN_200:
 #    type: ED_TCN
