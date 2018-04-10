@@ -275,8 +275,6 @@ if __name__ == "__main__":
             Y_train_subset = Y_train[train_inds]
             spect_ID_subset = X_train_spect_ID_vector[train_inds]
 
-
-
             if normalize_spectrograms:
                 spect_scaler = seg_nets.data_utils.SpectScaler()
                 X_train_subset = spect_scaler.fit_transform(X_train_subset)
