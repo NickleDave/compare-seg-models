@@ -190,11 +190,11 @@ def CNN_biLSTM(n_classes, n_feat, max_len,
                n_filters_by_layer=(32, 64),
                loss='categorical_crossentropy',
                optimizer='Adam'):
-    inputs = Input(shape=(max_len, n_feat, 1))
+    inputs = Input(shape=(max_len, n_feat))
 
     x = inputs
-    new_shape = (-1, time_steps, n_feat, 1)
-    X = Reshape(new_shape)(x)
+    new_shape = (max_len, n_feat, 1)
+    x = Reshape(new_shape)(x)
     for n_filters in n_filters_by_layer:
         x = Conv2D(n_filters, kernel_size=(5, 5),
                    padding="same", activation='relu')(x)
@@ -209,5 +209,6 @@ def CNN_biLSTM(n_classes, n_feat, max_len,
              recurrent_dropout=0.1))(x)
     x = TimeDistributed(Dense(n_classes, activation="softmax"))(x)
     model = Model(inputs=inputs, outputs = x)
-    model.compile(loss=loss, optimizer=optimizer,metrics=['accuracy'])
+    model.compile(loss=loss, optimizer=optimizer,
+                  sample_weight_mode = "temporal",metrics=['accuracy'])
     return model

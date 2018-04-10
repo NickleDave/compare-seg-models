@@ -1,59 +1,12 @@
 models:
 
-#  CNN_biLSTM:
-#    type: CNN_biLSTM
-#    n_filters_by_layer:
-#     - 32
-#     - 64
-#    loss: categorical_crossentropy
-#    optimizer: Adam
-
-  ED_TCN_200:
-    type: ED_TCN
-    n_nodes:
+  CNN_biLSTM:
+    type: CNN_biLSTM
+    n_filters_by_layer:
+     - 32
      - 64
-     - 96
-    conv_len: 200
     loss: categorical_crossentropy
-    causal: False
-    optimizer: rmsprop
-    activation: norm_relu
-
-  Dilated_TCN_200:
-    type: Dilated_TCN
-    nb_filters: 128
-    conv_len: 200
-    dilation_depth: 4
-    nb_stacks: 3
-    loss: categorical_crossentropy
-    causal: False
-    optimizer: rmsprop
-    activation: norm_relu
-    return_param_str: False
-
-  ED_TCN_100:
-    type: ED_TCN
-    n_nodes:
-     - 64
-     - 96
-    conv_len: 100
-    loss: categorical_crossentropy
-    causal: False
-    optimizer: rmsprop
-    activation: norm_relu
-    return_param_str: False
-
-  Dilated_TCN_100:
-    type: Dilated_TCN
-    nb_filters: 128
-    conv_len: 100
-    dilation_depth: 4
-    nb_stacks: 3
-    loss: categorical_crossentropy
-    causal: False
-    optimizer: rmsprop
-    activation: norm_relu
-    return_param_str: False
+    optimizer: Adam
 
   ED_TCN_25:
     type: ED_TCN
@@ -78,3 +31,52 @@ models:
     optimizer: rmsprop
     activation: norm_relu
     return_param_str: False
+
+
+#  ED_TCN_200:
+#    type: ED_TCN
+#    n_nodes:
+#     - 64
+#     - 96
+#    conv_len: 200
+#    loss: categorical_crossentropy
+#    causal: False
+#    optimizer: rmsprop
+#    activation: norm_relu
+#
+#  Dilated_TCN_200:
+#    type: Dilated_TCN
+#    nb_filters: 128
+#    conv_len: 200
+#    dilation_depth: 4
+#    nb_stacks: 3
+#    loss: categorical_crossentropy
+#    causal: False
+#    optimizer: rmsprop
+#    activation: norm_relu
+#    return_param_str: False
+#
+#  ED_TCN_100:
+#    type: ED_TCN
+#    n_nodes:
+#     - 64
+#     - 96
+#    conv_len: 100
+#    loss: categorical_crossentropy
+#    causal: False
+#    optimizer: rmsprop
+#    activation: norm_relu
+#    return_param_str: False
+#
+#  Dilated_TCN_100:
+#    type: Dilated_TCN
+#    nb_filters: 128
+#    conv_len: 100
+#    dilation_depth: 4
+#    nb_stacks: 3
+#    loss: categorical_crossentropy
+#    causal: False
+#    optimizer: rmsprop
+#    activation: norm_relu
+#    return_param_str: False
+#

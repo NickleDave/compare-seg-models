@@ -987,3 +987,127 @@ def reshape_inputs_and_make_masks(X,
         Y_[i, :length, :] = binarizer.transform(labels[i])
         mask[i, :length] = 1
     return X_, Y_, mask[:,:,None]
+
+
+# 'array for sliding window function' by Travis Oliphant
+# https://gist.github.com/teoliphant/96eb779a16bd038e374f2703da62f06d
+def array_for_sliding_window(x, wshape):
+    """Build a sliding-window representation of x.
+
+    The last dimension(s) of the output array contain the data of
+    the specific window.  The number of dimensions in the output is
+    twice that of the input.
+
+    Parameters
+    ----------
+    x : ndarray_like
+       An array for which is desired a representation to which sliding-windows
+       computations can be easily applied.
+    wshape : int or tuple
+       If an integer, then it is converted into a tuple of size given by the
+       number of dimensions of x with every element set to that integer.
+       If a tuple, then it should be the shape of the desired window-function
+
+    Returns
+    -------
+    out : ndarray
+        Return a zero-copy view of the data in x so that operations can be
+        performed over the last dimensions of this new array and be equivalent
+        to a sliding window calculation.  The shape of out is 2*x.ndim with
+        the shape of the last nd dimensions equal to wshape while the shape
+        of the first n dimensions is found by subtracting the window shape
+        from the input shape and adding one in each dimension.  This is
+        the number of "complete" blocks of shape wshape in x.
+
+    Raises
+    ------
+    ValueError
+        If the size of wshape is not x.ndim (unless wshape is an integer).
+        If one of the dimensions of wshape exceeds the input array.
+
+    Examples
+    --------
+    >>> x = np.linspace(1,5,5)
+    >>> x
+    array([ 1.,  2.,  3.,  4.,  5.])
+
+    >>> array_for_rolling_window(x, 3)
+    array([[ 1.,  2.,  3.],
+           [ 2.,  3.,  4.],
+           [ 3.,  4.,  5.]])
+
+    >>> x = np.arange(1,17).reshape(4,4)
+    >>> x
+    array([[ 1,  2,  3,  4],
+           [ 5,  6,  7,  8],
+           [ 9, 10, 11, 12],
+           [13, 14, 15, 16]])
+
+    >>> array_for_rolling_window(x, 3)
+    array([[[[ 1,  2,  3],
+             [ 5,  6,  7],
+             [ 9, 10, 11]],
+
+            [[ 2,  3,  4],
+             [ 6,  7,  8],
+             [10, 11, 12]]],
+
+           [[[ 5,  6,  7],
+             [ 9, 10, 11],
+             [13, 14, 15]],
+
+            [[ 6,  7,  8],
+             [10, 11, 12],
+             [14, 15, 16]]]])
+    """
+    x = np.asarray(x)
+
+    try:
+        nd = len(wshape)
+    except TypeError:
+        wshape = tuple(wshape for i in x.shape)
+        nd = len(wshape)
+    if nd != x.ndim:
+        raise ValueError("wshape has length {0} instead of "
+                         "x.ndim which is {1}".format(len(wshape), x.ndim))
+
+    out_shape = tuple(xi - wi + 1 for xi, wi in zip(x.shape, wshape)) + wshape
+    if not all(i > 0 for i in out_shape):
+        raise ValueError("wshape is bigger than input array along at "
+                         "least one dimension")
+
+    out_strides = x.strides * 2
+
+    return np.lib.stride_tricks.as_strided(x, out_shape, out_strides)
+
+
+def window_data(X,Y,time_steps):
+    """slides a window along data to produce arrays with
+    constant width for training a network.
+
+    parameters
+    ----------
+    X : ndarray
+        spectrogram.
+        Funciton assumes spectrogram is rotated
+        so that rows are time bins
+        and columns are frequency bins.
+    Y : ndarray
+        labels vector, labels for each time bin
+    time_steps : int
+        width of sliding window
+    :return:
+
+    Both the spectrogram X and the labels for time bins
+    in the spectrogram Y will be windowed with a window
+    of width time steps, returning an array with an
+    extra dimension of size (length_of_array - time_steps).
+    """
+
+    X_shape = X.shape
+    X_window_shape = (time_steps, X_shape[-1])
+    X_out = array_for_sliding_window(X, X_window_shape)
+    Y_shape = Y.shape
+    Y_window_shape = (time_steps, Y_shape[-1])
+    Y_out = array_for_sliding_window(Y, Y_window_shape)
+    return X_out.squeeze(), Y_out.squeeze()

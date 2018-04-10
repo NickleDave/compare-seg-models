@@ -11,7 +11,7 @@ import numpy as np
 import joblib
 import yaml
 from sklearn.preprocessing import LabelBinarizer
-from keras.callbacks import ModelCheckpoint, EarlyStopping
+from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 
 from seg_nets.keras_models import ed_tcn_output_size
 from seg_nets.keras_models import ED_TCN, Dilated_TCN, CNN_biLSTM
@@ -165,6 +165,17 @@ if __name__ == "__main__":
     # so that rows are time and columns are frequencies #
     #####################################################
     X_val = X_val.T
+
+    val_dur = int(config['TRAIN']['val_dur'])
+    logger.info('will measure error on validation set '
+                'of duration {} seconds'.format(val_dur))
+    val_inds = seg_nets.data_utils.get_inds_for_dur(X_val_spect_ID_vector,
+                                                    Y_val,
+                                                    labels_mapping,
+                                                    val_dur,
+                                                    timebin_dur)
+    X_val = X_val[val_inds, :]
+    Y_val = Y_val[val_inds]
     joblib.dump(X_val, os.path.join(results_dirname, 'X_val'))
     joblib.dump(Y_val, os.path.join(results_dirname, 'Y_val'))
 
@@ -198,9 +209,12 @@ if __name__ == "__main__":
     logger.info('\'patience\' is set to: {}'.format(patience))
 
     # set params used for sending data to graph in batches
-    batch_size = int(config['NETWORK']['batch_size'])
-    logger.info('will train network with batches of size {}'
-                .format(batch_size))
+    batch_size = int(config['TRAIN']['batch_size'])
+    time_steps = int(config['NETWORK']['time_steps'])
+    logger.info('will train network with batches of size {}, '
+                'where each spectrogram in batch contains {} time steps'
+                .format(batch_size, time_steps))
+
 
     nb_epoch = int(config['TRAIN']['nb_epoch'])
     logger.info('number of training epochs will be {}'
@@ -261,6 +275,8 @@ if __name__ == "__main__":
             Y_train_subset = Y_train[train_inds]
             spect_ID_subset = X_train_spect_ID_vector[train_inds]
 
+
+
             if normalize_spectrograms:
                 spect_scaler = seg_nets.data_utils.SpectScaler()
                 X_train_subset = spect_scaler.fit_transform(X_train_subset)
@@ -302,50 +318,58 @@ if __name__ == "__main__":
                 for _, model_config in networks_config['models'].items():
                     if model_config['type']=="ED_TCN":
                         n_nodes = model_config['n_nodes']
-                        while max_len != ed_tcn_output_size(max_len, n_nodes):
-                            max_len += 1
-                            iter += 1
-                            if iter > 50:
-                                raise ValueError("couldn't find max_len "
-                                                 "that worked with ED_TCN")
+                        if time_steps != ed_tcn_output_size(time_steps, n_nodes):
+                            raise ValueError("value for time_steps, {}, does not"
+                                             "result in same output size from"
+                                             "from ED_TCN decoder output.\nTest "
+                                             "value with ed_tcn_output_size "
+                                             "function.")
 
             binarizer = LabelBinarizer()
             binarizer.fit(np.concatenate((Y_train_subset.ravel(),
                                           Y_val.ravel())))
-
+            # (X_train_subset,
+            # Y_train_subset,
+            # masks_train_subset) = reshape_inputs_and_make_masks(X_train_subset,
+            #                                                     Y_train_subset,
+            #                                                     spect_ID_subset,
+            #                                                     binarizer,
+            #                                                     max_len=max_len,
+            #                                                     spect_pad_value=0,
+            #                                                     labels_pad_value=label_pad_value)
+            Y_train_subset = binarizer.transform(Y_train_subset)
             (X_train_subset,
-            Y_train_subset,
-            masks_train_subset) = reshape_inputs_and_make_masks(X_train_subset,
-                                                                Y_train_subset,
-                                                                spect_ID_subset,
-                                                                binarizer,
-                                                                max_len=max_len,
-                                                                spect_pad_value=0,
-                                                                labels_pad_value=label_pad_value)
-
+            Y_train_subset) = seg_nets.data_utils.window_data(X_train_subset,
+                                                             Y_train_subset,
+                                                             time_steps)
+            # (X_val_batch,
+            # Y_val_batch,
+            # masks_val_batch) = reshape_inputs_and_make_masks(X_val,
+            #                                                  Y_val,
+            #                                                  X_val_spect_ID_vector,
+            #                                                  binarizer,
+            #                                                  max_len=max_len,
+            #                                                  spect_pad_value=0,
+            #                                                  labels_pad_value=label_pad_value)
+            Y_val_batch = binarizer.transform(Y_val)
             (X_val_batch,
-            Y_val_batch,
-            masks_val_batch) = reshape_inputs_and_make_masks(X_val,
-                                                             Y_val,
-                                                             X_val_spect_ID_vector,
-                                                             binarizer,
-                                                             max_len=max_len,
-                                                             spect_pad_value=0,
-                                                             labels_pad_value=label_pad_value)
-
-            val_data = (X_val_batch, Y_val_batch, masks_val_batch[:, :, 0])
+            Y_val_batch) = seg_nets.data_utils.window_data(X_val,
+                                                          Y_val_batch,
+                                                          time_steps)
+            val_data = (X_val_batch, Y_val_batch)
 
             # save scaled reshaped data
-            scaled_reshaped_data_filename = os.path.join(training_records_path,
-                                                         'scaled_reshaped_spects_duration_{}_replicate_{}'
-                                                         .format(train_set_dur, replicate))
-            scaled_reshaped_data_dict = {'X_train_subset_scaled_reshaped': X_train_subset,
-                                         'Y_train_subset_reshaped': Y_train_subset,
-                                         'masks_train_subset': masks_train_subset,
-                                         'X_val_scaled_batch': X_val_batch,
-                                         'Y_val_batch': Y_val_batch,
-                                         'masks_val_batch': masks_val_batch}
-            joblib.dump(scaled_reshaped_data_dict, scaled_reshaped_data_filename)
+            # scaled_reshaped_data_filename = os.path.join(training_records_path,
+            #                                              'scaled_reshaped_spects_duration_{}_replicate_{}'
+            #                                              .format(train_set_dur, replicate))
+            # scaled_reshaped_data_dict = {'X_train_subset_scaled_reshaped': X_train_subset,
+            #                              'Y_train_subset_reshaped': Y_train_subset,
+            #                              #'masks_train_subset': masks_train_subset,
+            #                              'X_val_scaled_batch': X_val_batch,
+            #                              'Y_val_batch': Y_val_batch,
+            #                              #'masks_val_batch': masks_val_batch,
+            #                              }
+            # joblib.dump(scaled_reshaped_data_dict, scaled_reshaped_data_filename)
 
             # n_syllables, i.e., number of label classes to predict
             # Note that mapping includes label for silent gap b/t syllables
@@ -373,7 +397,7 @@ if __name__ == "__main__":
                                    conv_len=model_config['conv_len'],
                                    n_classes=n_syllables,
                                    n_feat=num_freq_bins,
-                                   max_len=max_len,
+                                   max_len=time_steps,
                                    causal=model_config['causal'],
                                    activation=model_config['activation'],
                                    optimizer=model_config['optimizer'],
@@ -387,7 +411,7 @@ if __name__ == "__main__":
                                         dilation_depth=model_config[
                                             'dilation_depth'],
                                         nb_stacks=model_config['nb_stacks'],
-                                        max_len=max_len,
+                                        max_len=time_steps,
                                         causal=model_config['causal'],
                                         optimizer=model_config['optimizer'],
                                         loss=model_config['loss'])
@@ -395,7 +419,7 @@ if __name__ == "__main__":
                 elif model_config['type'] == 'CNN_biLSTM':
                     model = CNN_biLSTM(n_classes=n_syllables,
                                        n_feat=num_freq_bins,
-                                       max_len=max_len,
+                                       max_len=time_steps,
                                        n_filters_by_layer=model_config['n_filters_by_layer'],
                                        loss=model_config['loss'],
                                        optimizer=model_config['optimizer'])
@@ -426,16 +450,31 @@ if __name__ == "__main__":
                                              patience=patience,
                                              verbose=1,
                                              mode='auto')
+                log_dir = os.path.join(training_records_path,
+                                       'logs',
+                                       model_dict['name'])
+                if not os.path.isdir(log_dir):
+                    os.makedirs(log_dir)
+                tensorboarder = TensorBoard(log_dir=log_dir,
+                                            histogram_freq=100,
+                                            batch_size=1,
+                                            write_graph=True,
+                                            write_grads=True,
+                                            write_images=True)
 
-                try:
-                    model_dict['obj'].fit(X_train_subset,
-                                          Y_train_subset,
-                                          epochs=nb_epoch,
-                                          batch_size=batch_size,
-                                          verbose=1,
-                                          sample_weight=masks_train_subset[:, :, 0],
-                                          validation_data=val_data,
-                                          callbacks=[checkpointer,
-                                                     earlystopper])
-                except ValueError:
-                    import IPython;IPython.embed()
+
+                history = model_dict['obj'].fit(X_train_subset,
+                                                Y_train_subset,
+                                                epochs=nb_epoch,
+                                                batch_size=batch_size,
+                                                verbose=1,
+                                                shuffle=True,
+                                                validation_data=val_data,
+                                                callbacks=[checkpointer,
+                                                           earlystopper,
+                                                           tensorboarder])
+                history_filename = os.path.join(training_records_path,
+                                                model_dict['name']
+                                                + '_history')
+                joblib.dump(history.history,
+                            history_filename)
