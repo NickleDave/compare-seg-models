@@ -370,4 +370,4 @@ err_by_model['train_set_durs'] = TRAIN_SET_DURS
 
 err_by_model_dict_filename = os.path.join(summary_dirname,
                                           'y_preds_and_err_for_train_and_test')
-joblib.dump(pred_and_err_dict, pred_err_dict_filename)
+joblib.dump(err_by_model, err_by_model_dict_filename)
