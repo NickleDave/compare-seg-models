@@ -816,7 +816,7 @@ def get_inds_for_dur(spect_ID_vector,
 
 
 def reshape_data_for_batching(X, Y, batch_size, time_steps, input_vec_size):
-    """reshape to feed to network in batches"""
+    """reshape to feed to network in batches."""
     # need to loop through train data in chunks, can't fit on GPU all at once
     # First zero pad
     num_batches = X.shape[0] // batch_size // time_steps
@@ -828,6 +828,29 @@ def reshape_data_for_batching(X, Y, batch_size, time_steps, input_vec_size):
     X = X.reshape((batch_size, num_batches * time_steps, -1))
     Y = Y.reshape((batch_size, -1))
     return X, Y, num_batches
+
+
+def reshape_for_input(X, Y, time_steps):
+    """reshape to feed to network.
+    Divides input spectrograms into samples with consistent width.
+    Width is specified as time steps.
+    Zero pads final sample if total number of time bins can't be
+    evenly divided into samples with width equal to specified time steps."""
+    # First zero pad
+    num_samples = X.shape[0] // time_steps
+    extra_rows = X.shape[0] % num_samples
+    if extra_rows:
+        num_samples += 1
+        rows_to_append = time_steps - extra_rows
+        X = np.concatenate((X, np.zeros((rows_to_append, X.shape[-1]))),
+                           axis=0)
+        Y = np.concatenate((Y, np.zeros((rows_to_append, Y.shape[-1]),
+                                        dtype=int)),
+                           axis=0)
+    # then reshape
+    X = X.reshape((num_samples, time_steps, -1))
+    Y = Y.reshape((num_samples, time_steps, -1))
+    return X, Y
 
 
 def convert_timebins_to_labels(labeled_timebins,
