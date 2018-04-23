@@ -9,7 +9,7 @@ import numpy as np
 import tensorflow as tf
 
 from .tf_utils import define_scope, spatial_dropout
-
+from .base_model import BaseModel
 
 def encoder_layer(input,
                   num_filters,
@@ -127,7 +127,7 @@ def time_distributed(input, layer):
     return y
 
 
-class EncoderDecoder:
+class EncoderDecoder(BaseModel):
     """Encoder Decoder Network
     """
     def __init__(self,
@@ -158,7 +158,7 @@ class EncoderDecoder:
             self.build_graph()
             self.saver = tf.train.Saver(max_to_keep=max_to_keep)
 
-    def build_graph(self):
+    def build_graph(self, graph):
         input_reshape = tf.reshape(self.input,
                                    [-1,
                                     self.num_freq_bins

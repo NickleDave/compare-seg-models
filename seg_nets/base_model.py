@@ -1,27 +1,23 @@
+# adapted from the MetaFlow blog
+# https://blog.metaflow.fr/
+# tensorflow-a-proposal-of-good-practices-for-files-folders-and-models-architecture-f23171501ae3
+# https://github.com/metaflow-ai/blog/tree/master/tf-architecture
+
 import os, copy
 import tensorflow as tf
 
 
 class BaseModel:
-    def __init__(self, config):
-        """builds model using configuration
-        config: dict
-            key, value pairs are parameter names and values"""
+    def __init__(self, **kwargs):
+        """builds model using configuration"""
 
-        self.config = copy.deepcopy(config)
+        prop_defaults = {
+            'random_seed': 42,
+            'result_dir': '.'
+        }
 
-        if 'random_seed' in config:
-            self.random_seed = self.config['random_seed']
-
-        self.result_dir = self.config['result_dir']
-        self.max_iter = self.config['max_iter']
-        self.lr = self.config['lr']
-        self.nb_units = self.config['nb_units']
-
-        # Now the child Model needs some custom parameters, to avoid any
-        # inheritance hell with the __init__ function, the model
-        # will override this function completely
-        self.set_agent_props()
+        for (prop, default) in prop_defaults.iteritems():
+            setattr(self, prop, kwargs.get(prop, default))
 
         self.graph = self.build_graph(tf.Graph())
 
@@ -30,14 +26,9 @@ class BaseModel:
                 max_to_keep=50,
             )
 
-        gpu_options = tf.GPUOptions(allow_growth=True)
-        sessConfig = tf.ConfigProto(gpu_options=gpu_options)
         self.sess = tf.Session(config=sessConfig, graph=self.graph)
         self.sw = tf.summary.FileWriter(self.result_dir, self.sess.graph)
 
-        # This function is not always common to all models, that's why it's again
-        # separated from the __init__ one
-        self.init()
 
     def set_agent_props(self):
         pass
