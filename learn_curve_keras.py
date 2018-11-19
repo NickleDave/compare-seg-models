@@ -6,6 +6,7 @@ import logging
 import pickle
 from datetime import datetime
 from configparser import ConfigParser, NoOptionError
+import time
 
 import numpy as np
 import joblib
@@ -16,7 +17,7 @@ from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 from seg_nets.keras_models import ed_tcn_output_size
 from seg_nets.keras_models import ED_TCN, Dilated_TCN, CNN_biLSTM
 import seg_nets.data_utils
-from seg_nets.data_utils import reshape_inputs_and_make_masks
+
 
 if __name__ == "__main__":
     config_file = os.path.normpath(sys.argv[1])
@@ -396,8 +397,8 @@ if __name__ == "__main__":
                 models.append(model_dict)
 
             for model_dict in models:
-                print('training model: {}'.format(model_dict['name']))
-                print('model type: {}'.format(model_dict['type']))
+                logger.info('training model: {}'.format(model_dict['name']))
+                logger.info('model type: {}'.format(model_dict['type']))
                 checkpoint_filename = ('checkpoint_'
                                        + model_dict['name'] +
                                        '_train_set_dur_'
@@ -427,7 +428,7 @@ if __name__ == "__main__":
                                             write_graph=True,
                                             write_grads=True,
                                             write_images=True)
-
+                tic = time.time()
                 history = model_dict['obj'].fit(X_train_subset,
                                                 Y_train_subset,
                                                 epochs=nb_epoch,
@@ -439,6 +440,11 @@ if __name__ == "__main__":
                                                            earlystopper,
                                                            #tensorboarder,
                                                            ])
+
+                logger.info('training start: {}'.format(tic))
+                logger.info('training stop: {}'.format(toc))
+                logger.info('total training time: {}'.format(toc - tic))
+
                 history_filename = os.path.join(training_records_path,
                                                 model_dict['name']
                                                 + '_history')
