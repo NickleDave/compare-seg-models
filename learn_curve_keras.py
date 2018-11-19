@@ -326,48 +326,17 @@ if __name__ == "__main__":
             binarizer = LabelBinarizer()
             binarizer.fit(np.concatenate((Y_train_subset.ravel(),
                                           Y_val.ravel())))
-            # (X_train_subset,
-            # Y_train_subset,
-            # masks_train_subset) = reshape_inputs_and_make_masks(X_train_subset,
-            #                                                     Y_train_subset,
-            #                                                     spect_ID_subset,
-            #                                                     binarizer,
-            #                                                     max_len=max_len,
-            #                                                     spect_pad_value=0,
-            #                                                     labels_pad_value=label_pad_value)
             Y_train_subset = binarizer.transform(Y_train_subset)
             (X_train_subset,
             Y_train_subset) = seg_nets.data_utils.window_data(X_train_subset,
                                                              Y_train_subset,
                                                              time_steps)
-            # (X_val_batch,
-            # Y_val_batch,
-            # masks_val_batch) = reshape_inputs_and_make_masks(X_val,
-            #                                                  Y_val,
-            #                                                  X_val_spect_ID_vector,
-            #                                                  binarizer,
-            #                                                  max_len=max_len,
-            #                                                  spect_pad_value=0,
-            #                                                  labels_pad_value=label_pad_value)
             Y_val_batch = binarizer.transform(Y_val)
             (X_val_batch,
             Y_val_batch) = seg_nets.data_utils.window_data(X_val,
                                                           Y_val_batch,
                                                           time_steps)
             val_data = (X_val_batch, Y_val_batch)
-
-            # save scaled reshaped data
-            # scaled_reshaped_data_filename = os.path.join(training_records_path,
-            #                                              'scaled_reshaped_spects_duration_{}_replicate_{}'
-            #                                              .format(train_set_dur, replicate))
-            # scaled_reshaped_data_dict = {'X_train_subset_scaled_reshaped': X_train_subset,
-            #                              'Y_train_subset_reshaped': Y_train_subset,
-            #                              #'masks_train_subset': masks_train_subset,
-            #                              'X_val_scaled_batch': X_val_batch,
-            #                              'Y_val_batch': Y_val_batch,
-            #                              #'masks_val_batch': masks_val_batch,
-            #                              }
-            # joblib.dump(scaled_reshaped_data_dict, scaled_reshaped_data_filename)
 
             # n_syllables, i.e., number of label classes to predict
             # Note that mapping includes label for silent gap b/t syllables
@@ -400,7 +369,6 @@ if __name__ == "__main__":
                                    activation=model_config['activation'],
                                    optimizer=model_config['optimizer'],
                                    loss=model_config['loss'])
-
 
                 elif model_config['type'] == 'Dilated_TCN':
                     model = Dilated_TCN(num_feat=num_freq_bins,
