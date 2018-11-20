@@ -423,11 +423,12 @@ if __name__ == "__main__":
                 if not os.path.isdir(log_dir):
                     os.makedirs(log_dir)
                 tensorboarder = TensorBoard(log_dir=log_dir,
-                                            histogram_freq=100,
-                                            batch_size=1,
-                                            write_graph=True,
-                                            write_grads=True,
-                                            write_images=True)
+                                            histogram_freq=1,
+                                            batch_size=batch_size,
+                                            write_graph=False,
+                                            write_grads=False,
+                                            write_images=False,
+                                            update_freq='batch')
                 tic = time.time()
                 history = model_dict['obj'].fit(X_train_subset,
                                                 Y_train_subset,
@@ -438,9 +439,9 @@ if __name__ == "__main__":
                                                 validation_data=val_data,
                                                 callbacks=[checkpointer,
                                                            earlystopper,
-                                                           #tensorboarder,
+                                                           tensorboarder,
                                                            ])
-
+                toc = time.time()
                 logger.info('training start: {}'.format(tic))
                 logger.info('training stop: {}'.format(toc))
                 logger.info('total training time: {}'.format(toc - tic))
