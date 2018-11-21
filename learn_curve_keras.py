@@ -332,20 +332,20 @@ if __name__ == "__main__":
             Y_train_subset) = seg_nets.data_utils.window_data(X_train_subset,
                                                              Y_train_subset,
                                                              time_steps)
-            shuffle_inds = np.random.permutation(
-                np.arange(X_train_subset.shape[0]))
-            X_train_subset = X_train_subset[shuffle_inds, :, :]
-            Y_train_subset = Y_train_subset[shuffle_inds, :, :]
+            seed = int(round(time.time() * 1000))
+            seg_nets.data_utils.seedyshuffle(X_train_subset,
+                                             Y_train_subset,
+                                             seed)
 
             Y_val_batch = binarizer.transform(Y_val)
             (X_val_batch,
             Y_val_batch) = seg_nets.data_utils.window_data(X_val,
                                                           Y_val_batch,
                                                           time_steps)
-            shuffle_inds = np.random.permutation(
-                np.arange(X_val_batch.shape[0]))
-            X_val_batch = X_val_batch[shuffle_inds, :, :]
-            Y_val_batch = Y_val_batch[shuffle_inds, :, :]
+            seed = int(round(time.time() * 1000))
+            seg_nets.data_utils.seedyshuffle(X_val_batch,
+                                             Y_val_batch,
+                                             seed)
             val_data = (X_val_batch, Y_val_batch)
 
             # n_syllables, i.e., number of label classes to predict

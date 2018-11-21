@@ -1134,3 +1134,29 @@ def window_data(X,Y,time_steps):
     Y_window_shape = (time_steps, Y_shape[-1])
     Y_out = array_for_sliding_window(Y, Y_window_shape)
     return X_out.squeeze(), Y_out.squeeze()
+
+
+def seedyshuffle(a, b, seed):
+    """shuffles two arrays the same way, but in place
+    (without requiring copies of them), by seeding the
+    random number generator with the same seed before
+    each shuffle
+
+    Parameters
+    ----------
+    a : np.array
+        first array to shuffle along first axis using np.random.shuffle
+    b : np.array
+        second array to shuffle in the same way as the first array,
+        also along the first axis
+    seed : int
+        seed for np.random.seed()
+
+    Returns
+    -------
+    None (shuffles in-place)
+    """
+    np.random.seed(seed)
+    np.random.shuffle(a)
+    np.random.seed(seed)
+    np.random.shuffle(b)
