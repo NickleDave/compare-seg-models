@@ -7,6 +7,7 @@ import pickle
 from datetime import datetime
 from configparser import ConfigParser, NoOptionError
 import time
+import random
 
 import numpy as np
 import joblib
@@ -332,7 +333,7 @@ if __name__ == "__main__":
             Y_train_subset) = seg_nets.data_utils.window_data(X_train_subset,
                                                              Y_train_subset,
                                                              time_steps)
-            seed = int(round(time.time() * 1000))
+            seed = random.randint(0,2**32-1)
             seg_nets.data_utils.seedyshuffle(X_train_subset,
                                              Y_train_subset,
                                              seed)
@@ -342,7 +343,7 @@ if __name__ == "__main__":
             Y_val_batch) = seg_nets.data_utils.window_data(X_val,
                                                           Y_val_batch,
                                                           time_steps)
-            seed = int(round(time.time() * 1000))
+            seed = random.randint(0,2**32-1)
             seg_nets.data_utils.seedyshuffle(X_val_batch,
                                              Y_val_batch,
                                              seed)
