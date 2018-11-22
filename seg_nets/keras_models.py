@@ -11,6 +11,7 @@ from keras.layers.convolutional import Conv1D, Conv2D, ZeroPadding1D, Cropping1D
 from keras.layers.convolutional import MaxPooling1D, MaxPooling2D, UpSampling1D
 from keras.layers import Bidirectional
 from keras.layers.recurrent import LSTM
+from keras import regularizers
 
 import tensorflow as tf
 from keras import backend as K
@@ -68,7 +69,8 @@ def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
     for i in range(n_layers):
         # Pad beginning of sequence to prevent usage of future data
         if causal: model = ZeroPadding1D((conv_len // 2, 0))(model)
-        model = Conv1D(n_nodes[i], conv_len, padding='same')(model)
+        model = Conv1D(n_nodes[i], conv_len, padding='same',
+                       kernel_regularizer=regularizers.l2(0.001))(model)
         if causal: model = Cropping1D((0, conv_len // 2))(model)
 
         model = SpatialDropout1D(0.3)(model)
@@ -88,7 +90,8 @@ def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
     for i in range(n_layers):
         model = UpSampling1D(2)(model)
         if causal: model = ZeroPadding1D((conv_len // 2, 0))(model)
-        model = Conv1D(n_nodes[-i - 1], conv_len, padding='same')(model)
+        model = Conv1D(n_nodes[-i - 1], conv_len, padding='same',
+                       kernel_regularizer=regularizers.l2(0.001))(model)
         if causal: model = Cropping1D((0, conv_len // 2))(model)
 
         model = SpatialDropout1D(0.3)(model)
@@ -103,7 +106,8 @@ def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
             model = Activation(activation)(model)
 
     # Output FC layer
-    model = TimeDistributed(Dense(n_classes, activation="softmax"))(model)
+    model = TimeDistributed(Dense(n_classes, activation="softmax",
+                                  kernel_regularizer=regularizers.l2(0.001)))(model)
 
     model = Model(inputs=inputs, outputs=model)
     model.compile(loss=loss, optimizer=optimizer, metrics=['accuracy'])
@@ -131,7 +135,8 @@ def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
         else:
             conv = Conv1D(nb_filters, 3, dilation_rate=2 ** i,
                           padding='same',
-                          name='dilated_conv_%d_tanh_s%d' % (2 ** i, s))(x)
+                          name='dilated_conv_%d_tanh_s%d' % (2 ** i, s),
+                          kernel_regularizer=regularizers.l2(0.001))(x)
 
         conv = SpatialDropout1D(0.3)(conv)
         # x = WaveNet_activation(conv)
@@ -146,7 +151,8 @@ def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
 
             # res_x  = Convolution1D(nb_filters, 1, border_mode='same')(x)
         # skip_x = Convolution1D(nb_filters, 1, border_mode='same')(x)
-        x = Conv1D(nb_filters, 1, padding='same')(x)
+        x = Conv1D(nb_filters, 1, padding='same',
+                   kernel_regularizer=regularizers.l2(0.001))(x)
 
         res_x = Add()([original_x, x])
 
@@ -164,7 +170,8 @@ def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
                    name='initial_conv')(x)
         x = Cropping1D((0, 1))(x)
     else:
-        x = Conv1D(nb_filters, 3, padding='same', name='initial_conv')(x)
+        x = Conv1D(nb_filters, 3, padding='same', name='initial_conv',
+                   kernel_regularizer=regularizers.l2(0.001))(x)
 
     for s in range(nb_stacks):
         for i in range(0, dilation_depth + 1):
@@ -174,9 +181,11 @@ def Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks,
     if use_skip_connections:
         x = Add()(skip_connections)
     x = Activation('relu')(x)
-    x = Conv1D(nb_filters, tail_conv, padding='same')(x)
+    x = Conv1D(nb_filters, tail_conv, padding='same',
+               kernel_regularizer=regularizers.l2(0.001))(x)
     x = Activation('relu')(x)
-    x = Conv1D(num_classes, tail_conv, padding='same')(x)
+    x = Conv1D(num_classes, tail_conv, padding='same',
+               kernel_regularizer=regularizers.l2(0.001))(x)
     x = Activation('softmax', name='output_softmax')(x)
 
     model = Model(inputs=input_layer, outputs=x)
