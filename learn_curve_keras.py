@@ -13,11 +13,21 @@ import numpy as np
 import joblib
 import yaml
 from sklearn.preprocessing import LabelBinarizer
-from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
+from keras.callbacks import ModelCheckpoint, EarlyStopping, Callback
 
 from seg_nets.keras_models import ed_tcn_output_size
 from seg_nets.keras_models import ED_TCN, Dilated_TCN, CNN_biLSTM
 import seg_nets.data_utils
+
+
+class HistoryWithBatch(Callback):
+    def on_train_begin(self, logs=None):
+        self.batch_loss = []
+        self.batch_acc = []
+
+    def on_batch_end(self, batch, logs=None):
+        self.batch_loss.append(logs.get('loss'))
+        self.batch_acc.append(logs.get('acc'))
 
 
 if __name__ == "__main__":
@@ -422,7 +432,7 @@ if __name__ == "__main__":
                                                save_best_only=True,
                                                save_weights_only=False,
                                                mode='auto', period=1)
-                earlystopper = EarlyStopping(monitor='val_loss',
+                earlystopper = EarlyStopping(monitor='val_acc',
                                              min_delta=0.001,
                                              patience=patience,
                                              verbose=1,
@@ -432,14 +442,9 @@ if __name__ == "__main__":
                                        model_dict['name'])
                 if not os.path.isdir(log_dir):
                     os.makedirs(log_dir)
-                tensorboarder = TensorBoard(log_dir=log_dir,
-                                            histogram_freq=0,
-                                            batch_size=1,
-                                            write_graph=False,
-                                            write_grads=False,
-                                            write_images=False,
-                                            update_freq='batch')
+
                 tic = time.time()
+                batchhistory = HistoryWithBatch()
                 history = model_dict['obj'].fit(X_train_subset,
                                                 Y_train_subset,
                                                 epochs=nb_epoch,
@@ -449,7 +454,7 @@ if __name__ == "__main__":
                                                 validation_data=val_data,
                                                 callbacks=[checkpointer,
                                                            earlystopper,
-                                                           tensorboarder,
+                                                           batchhistory,
                                                            ])
                 toc = time.time()
                 logger.info('training start: {}'.format(tic))
@@ -461,3 +466,12 @@ if __name__ == "__main__":
                                                 + '_history')
                 joblib.dump(history.history,
                             history_filename)
+                batch_history_fname = os.path.join(training_records_path,
+                                                model_dict['name']
+                                                + '_batch_history')
+                batch_history_dict = {
+                    'batch_loss': batchhistory.batch_loss,
+                    'batch_acc': batchhistory.batch_acc,
+                }
+                joblib.dump(batch_history_dict,
+                            batch_history_fname)
