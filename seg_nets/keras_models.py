@@ -127,7 +127,8 @@ def CNN_ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
 
     for n_filters in n_filters_by_layer:
         model = Conv2D(n_filters, kernel_size=(5, 5),
-                   padding="same", activation='relu')(model)
+                       kernel_regularizer=regularizers.l2(0.001),
+                       padding="same", activation='relu')(model)
         model = MaxPooling2D(pool_size=(1, 8),
                          strides=(1, 8))(model)
     shape = model.get_shape().as_list()
@@ -317,6 +318,7 @@ def CNN_Dilated_TCN(num_feat, num_classes, nb_filters, dilation_depth, nb_stacks
 
     for n_filters in n_filters_by_layer:
         x = Conv2D(n_filters, kernel_size=(5, 5),
+                   kernel_regularizer=regularizers.l2(0.001),
                    padding="same", activation='relu')(x)
         x = MaxPooling2D(pool_size=(1, 8),
                          strides=(1, 8))(x)
@@ -367,6 +369,7 @@ def CNN_biLSTM(n_classes, n_feat, max_len,
     x = Reshape(new_shape)(x)
     for n_filters in n_filters_by_layer:
         x = Conv2D(n_filters, kernel_size=(5, 5),
+                   kernel_regularizer=regularizers.l2(0.001),
                    padding="same", activation='relu')(x)
         x = MaxPooling2D(pool_size=(1, 8),
                          strides=(1, 8))(x)
