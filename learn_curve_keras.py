@@ -16,7 +16,8 @@ from sklearn.preprocessing import LabelBinarizer
 from keras.callbacks import ModelCheckpoint, EarlyStopping, Callback
 
 from seg_nets.keras_models import ed_tcn_output_size
-from seg_nets.keras_models import ED_TCN, Dilated_TCN, CNN_biLSTM
+from seg_nets.keras_models import ED_TCN, CNN_ED_TCN, Dilated_TCN, CNN_biLSTM
+from seg_nets.keras_models import CNN_Dilated_TCN
 import seg_nets.data_utils
 
 
@@ -382,6 +383,24 @@ if __name__ == "__main__":
                                    optimizer=model_config['optimizer'],
                                    loss=model_config['loss'])
 
+                elif model_config['type'] == "CNN_ED_TCN":
+                    if Y_train_subset.shape[1] != ed_tcn_output_size(X_train_subset.shape[1],
+                                                                     model_config['n_nodes']):
+                        raise ValueError('ED_TCN output does not equal input, '
+                                         'check whether max_len was adjusted to '
+                                         'appropriate length so that output equals'
+                                         'input after max pooling then upsampling.')
+                    model = CNN_ED_TCN(n_nodes=model_config['n_nodes'],
+                                   conv_len=model_config['conv_len'],
+                                   n_filters_by_layer=model_config['n_filters_by_layer'],
+                                   n_classes=n_syllables,
+                                   n_feat=num_freq_bins,
+                                   max_len=time_steps,
+                                   causal=model_config['causal'],
+                                   activation=model_config['activation'],
+                                   optimizer=model_config['optimizer'],
+                                   loss=model_config['loss'])
+
                 elif model_config['type'] == 'Dilated_TCN':
                     model = Dilated_TCN(num_feat=num_freq_bins,
                                         num_classes=n_syllables,
@@ -393,6 +412,20 @@ if __name__ == "__main__":
                                         causal=model_config['causal'],
                                         optimizer=model_config['optimizer'],
                                         loss=model_config['loss'])
+
+                elif model_config['type'] == 'CNN_Dilated_TCN':
+                    model = CNN_Dilated_TCN(num_feat=num_freq_bins,
+                                            num_classes=n_syllables,
+                                            nb_filters=model_config[
+                                                'nb_filters'],
+                                            dilation_depth=model_config[
+                                                'dilation_depth'],
+                                            nb_stacks=model_config['nb_stacks'],
+                                            max_len=time_steps,
+                                            n_filters_by_layer=model_config['n_filters_by_layer'],
+                                            causal=model_config['causal'],
+                                            optimizer=model_config['optimizer'],
+                                            loss=model_config['loss'])
 
                 elif model_config['type'] == 'CNN_biLSTM':
                     model = CNN_biLSTM(n_classes=n_syllables,
