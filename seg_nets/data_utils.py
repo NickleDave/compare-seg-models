@@ -838,7 +838,7 @@ def reshape_for_input(X, Y, time_steps):
     evenly divided into samples with width equal to specified time steps."""
     # First zero pad
     num_samples = X.shape[0] // time_steps
-    extra_rows = X.shape[0] % num_samples
+    extra_rows = X.shape[0] % time_steps
     if extra_rows:
         num_samples += 1
         rows_to_append = time_steps - extra_rows
