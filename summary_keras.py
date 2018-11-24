@@ -4,6 +4,7 @@ import pickle
 from glob import glob
 from configparser import ConfigParser
 from datetime import datetime
+import time
 
 import numpy as np
 import joblib
@@ -184,7 +185,10 @@ for model_name, model_config in networks_config['models'].items():
                                               len(REPLICATES)))
     err_dict['test_syl_err_arr'] = np.empty((len(TRAIN_SET_DURS),
                                              len(REPLICATES)))
-
+    err_dict['train_predict_time'] = np.empty((len(TRAIN_SET_DURS),
+                                              len(REPLICATES)))
+    err_dict['test_predict_time'] = np.empty((len(TRAIN_SET_DURS),
+                                              len(REPLICATES)))
     err_by_model[model_name] = err_dict
 
 for dur_ind, train_set_dur in enumerate(TRAIN_SET_DURS):
@@ -276,11 +280,17 @@ for dur_ind, train_set_dur in enumerate(TRAIN_SET_DURS):
                                    + str(replicate))
             checkpoint_filename = os.path.join(training_records_path,
                                                checkpoint_filename)
+            print('loading model from checkpoint')
             model = load_model(checkpoint_filename)
 
+            print('calculating predictions for training set')
+            tic = time.time()
             Y_pred_train = model.predict(X_train_subset,
                                          batch_size=batch_size,
                                          verbose=1)
+            toc = time.time()
+            print('prediction time: {}'.format(toc - tic))
+            err_by_model[model_name]['train_predict_time'][dur_ind, rep_ind] = toc - tic
             # save softmax probs output by model
             err_by_model[model_name]['Y_pred_train_all'][dur_ind, rep_ind] = Y_pred_train
 
@@ -325,10 +335,14 @@ for dur_ind, train_set_dur in enumerate(TRAIN_SET_DURS):
             if 'Y_pred_test' in locals():
                 del Y_pred_test
 
-            print('calculating test set error')
+            print('calculating predictions for test set')
+            tic = time.time()
             Y_pred_test = model.predict(X_test,
                                         batch_size=batch_size,
                                         verbose=1)
+            toc = time.time()
+            print('prediction time: {}'.format(toc - tic))
+            err_by_model[model_name]['test_predict_time'][dur_ind, rep_ind] = toc - tic
             # save softmax probs output by model
             err_by_model[model_name]['Y_pred_test_all'][dur_ind, rep_ind] = Y_pred_test
 
