@@ -483,7 +483,9 @@ if __name__ == "__main__":
                 toc = time.time()
                 logger.info('training start: {}'.format(tic))
                 logger.info('training stop: {}'.format(toc))
-                logger.info('total training time: {}'.format(toc - tic))
+                logger.info('model name {}, model type {}, training time {}'.format(model_dict['name'],
+                                                                                    model_dict['type'],
+                                                                                    toc - tic))
 
                 history_filename = os.path.join(training_records_path,
                                                 model_dict['name']
