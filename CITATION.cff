@@ -1,0 +1,18 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: >-
+  Comparison of Neural Networks for Segmentation of
+  Vocalizations
+message: >-
+  code associated with presentation at 2018 Southern
+  Data Science conference
+type: software
+authors:
+  - given-names: David
+    family-names: Nicholson
+    email: nicholdav@gmail.com
+    orcid: 'https://orcid.org/0000-0002-4261-4719'
+    affiliation: Emory University
+license: BSD-3-Clause
