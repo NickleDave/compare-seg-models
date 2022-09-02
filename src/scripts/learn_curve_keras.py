@@ -321,7 +321,7 @@ if __name__ == "__main__":
             networks_config_file = os.path.join(networks_config_path,
                                                 networks_config_file)
             with open(networks_config_file,'r') as yml:
-                networks_config = yaml.load(yml)
+                networks_config = yaml.safe_load(yml)
 
             if any(model_config['type']=="ED_TCN"
                    for _, model_config in networks_config['models'].items()):
