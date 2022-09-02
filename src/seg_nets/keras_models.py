@@ -4,21 +4,30 @@
 # [1]René, Colin Lea Michael D. Flynn, and Vidal Austin Reiter Gregory D. Hager.
 # "Temporal convolutional networks for action segmentation and detection." (2017).
 
-import tensorflow as tf
 
-from tf.keras.models import Model
-from tf.keras.layers import Input, TimeDistributed, Add, Multiply, Dense, Reshape
-from tf.keras.layers.core import Activation, SpatialDropout1D, Lambda
-from tf.keras.layers.convolutional import Conv1D, Conv2D, ZeroPadding1D, Cropping1D
-from tf.keras.layers.convolutional import MaxPooling1D, MaxPooling2D, UpSampling1D
-from tf.keras.layers import Bidirectional
-from tf.keras.layers.recurrent import LSTM
-from tf.keras import regularizers
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, TimeDistributed, Add, Multiply, Dense, Reshape
+from tensorflow.keras.layers import (
+    Activation, 
+    SpatialDropout1D,
+    Lambda,
+    Conv1D, 
+    Conv2D, 
+    ZeroPadding1D,
+    Cropping1D,
+    MaxPooling1D, 
+    MaxPooling2D, 
+    UpSampling1D,
+    Bidirectional,
+    LSTM
+)
+
+from keras import regularizers
 
 import tensorflow as tf
 from keras import backend as K
 
-from keras.activations import relu
+from tensorflow.keras.activations import relu
 from functools import partial
 
 clipped_relu = partial(relu, max_value=5)
