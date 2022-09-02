@@ -1,0 +1,16 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "seg_nets"
+version = "0.1.0"
+description= "comparison of deep neural network models for segmenting vocalizations"
+authors = [{name = "David Nicholson", email = "nickledave@users.noreply.github.com"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = ["License :: OSI Approved :: MIT License"]
+dynamic = ["version", "description"]
+
+[project.urls]
+Home = "https://github.com/NickleDave/seg_nets"
