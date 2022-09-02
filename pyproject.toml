@@ -13,3 +13,10 @@ classifiers = ["License :: OSI Approved :: MIT License"]
 
 [project.urls]
 Home = "https://github.com/NickleDave/seg_nets"
+
+dependencies = [
+    "matplotlib >=3.3.3",
+    "numpy >=1.18.1",
+    "scipy >=1.4.1",
+    "tensorflow >=2.9.1",
+]
